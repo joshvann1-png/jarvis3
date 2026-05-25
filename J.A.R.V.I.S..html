@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>J.A.R.V.I.S.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@300;400;600&family=Rajdhani:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;}
+canvas{position:fixed;inset:0;width:100%;height:100%;z-index:0;}
+#ui{position:fixed;inset:0;z-index:10;display:grid;grid-template-rows:50px 1fr auto;pointer-events:none;font-family:'Rajdhani',sans-serif;}
+#ui>*{pointer-events:auto;}
+header{display:flex;align-items:center;justify-content:space-between;padding:0 26px;background:rgba(0,0,0,0.65);border-bottom:1px solid rgba(0,180,255,0.09);backdrop-filter:blur(16px);}
+#wordmark{font-family:'Orbitron',sans-serif;font-size:11px;font-weight:300;letter-spacing:6px;color:rgba(100,200,255,0.75);}
+#status-row{display:flex;align-items:center;gap:8px;}
+#dot{width:7px;height:7px;border-radius:50%;background:#00b4d8;box-shadow:0 0 8px #00b4d8;transition:all 0.4s;}
+#lbl{font-family:'Orbitron',sans-serif;font-size:8px;font-weight:300;letter-spacing:3px;color:#00b4d8;transition:color 0.4s;min-width:100px;text-align:right;}
+#gear{background:none;border:none;cursor:pointer;color:rgba(0,180,255,0.28);font-size:15px;padding:4px 0 4px 12px;transition:color 0.2s;line-height:1;}
+#gear:hover{color:rgba(0,180,255,0.6);}
+#drawer{position:fixed;top:50px;right:0;width:300px;z-index:50;background:rgba(0,5,12,0.97);backdrop-filter:blur(20px);border-left:1px solid rgba(0,180,255,0.10);border-bottom:1px solid rgba(0,180,255,0.10);padding:22px;display:flex;flex-direction:column;gap:10px;transform:translateX(100%);transition:transform 0.28s ease;}
+#drawer.open{transform:translateX(0);}
+.drawer-ttl{font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:3px;color:rgba(0,180,255,0.38);font-weight:300;margin-top:10px;}
+.step{font-size:11px;color:rgba(80,170,230,0.38);line-height:2.1;}
+.step b{color:rgba(0,180,255,0.55);font-weight:600;}
+.d-input{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:400;padding:10px 13px;background:rgba(0,8,18,0.99);border:1.5px solid rgba(0,180,255,0.16);border-radius:3px;color:rgba(100,200,255,0.9);outline:none;transition:border-color 0.2s;width:100%;}
+.d-input:focus{border-color:rgba(0,180,255,0.5);}
+.d-input::placeholder{color:rgba(0,150,200,0.2);}
+.d-btn{font-family:'Orbitron',sans-serif;font-size:9px;font-weight:300;letter-spacing:3px;padding:10px;cursor:pointer;background:rgba(0,180,255,0.08);border:1.5px solid rgba(0,180,255,0.28);border-radius:3px;color:#00b4d8;transition:all 0.2s;}
+.d-btn:hover{background:rgba(0,180,255,0.18);}
+.d-btn:disabled{opacity:0.3;cursor:not-allowed;}
+.d-status{font-size:10px;min-height:14px;}
+#orb-zone{pointer-events:none;display:flex;align-items:center;justify-content:center;}
+#bottom{padding:0 32px 36px;display:flex;flex-direction:column;align-items:center;gap:10px;}
+#j-text{font-family:'Rajdhani',sans-serif;font-size:17px;font-weight:400;letter-spacing:0.3px;line-height:1.6;text-align:center;color:rgba(100,200,255,0.88);max-width:600px;min-height:28px;}
+#j-text.dim{opacity:0.22;animation:think 1.1s ease-in-out infinite;}
+
+#doc-tab{position:fixed;bottom:0;right:24px;z-index:99;font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;padding:6px 14px;cursor:pointer;border-radius:3px 3px 0 0;background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.2);border-bottom:none;color:rgba(0,180,255,0.45);transition:all 0.2s;}
+#doc-tab:hover{color:#00b4d8;background:rgba(0,180,255,0.15);}
+#doc-panel{position:fixed;bottom:0;left:0;right:0;z-index:100;height:45vh;background:rgba(0,0,0,0.97);border-top:1px solid rgba(0,180,255,0.2);backdrop-filter:blur(20px);display:flex;flex-direction:column;transform:translateY(100%);transition:transform 0.3s ease;}
+#doc-panel.open{transform:translateY(0);}
+#doc-toolbar{display:flex;align-items:center;justify-content:space-between;padding:10px 18px;border-bottom:1px solid rgba(0,180,255,0.1);flex-shrink:0;}
+#doc-title{font-family:'Orbitron',sans-serif;font-size:9px;letter-spacing:3px;color:rgba(0,180,255,0.55);font-weight:300;}
+#doc-btns{display:flex;gap:8px;align-items:center;}
+.doc-btn{font-family:'Orbitron',sans-serif;font-size:8px;letter-spacing:2px;padding:5px 12px;cursor:pointer;border-radius:2px;font-weight:300;transition:all 0.2s;}
+#doc-copy{background:rgba(0,180,255,0.08);border:1px solid rgba(0,180,255,0.3);color:#00b4d8;}
+#doc-download{background:rgba(0,210,90,0.08);border:1px solid rgba(0,210,90,0.3);color:rgba(0,210,90,0.8);}
+#doc-clear{background:rgba(255,60,60,0.06);border:1px solid rgba(255,60,60,0.25);color:rgba(255,80,80,0.6);}
+#doc-close{background:transparent;border:1px solid rgba(0,180,255,0.15);color:rgba(0,180,255,0.35);}
+#doc-content{flex:1;padding:18px 22px;overflow-y:auto;font-family:'Rajdhani',sans-serif;font-size:15px;font-weight:400;color:rgba(200,230,255,0.9);line-height:1.8;white-space:pre-wrap;outline:none;caret-color:#00b4d8;}
+#doc-content:empty:before{content:'Document is empty. Say "write..." to begin.';color:rgba(0,180,255,0.2);}
+#doc-copied{font-size:10px;color:rgba(0,210,90,0.7);font-family:'Rajdhani',sans-serif;letter-spacing:1px;min-width:60px;text-align:right;}
+@keyframes think{0%,100%{opacity:0.18}50%{opacity:0.65}}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.15}}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <header>
+    <div id="wordmark">J.A.R.V.I.S.</div>
+    <div style="display:flex;align-items:center;gap:0">
+      <div id="status-row"><div id="dot"></div><div id="lbl">STANDBY</div></div>
+      <button id="gear">⚙</button>
+    </div>
+  </header>
+  <div id="orb-zone"></div>
+  <div id="bottom">
+    <div id="j-text">Good day. I am J.A.R.V.I.S. Connect your API key to begin.</div>
+  </div>
+</div>
+
+<div id="drawer">
+  <div class="drawer-ttl">GROQ API KEY</div>
+  <div class="step">console.groq.com → API Keys → <b>Create Key</b></div>
+  <input class="d-input" id="groq-in" type="password" placeholder="gsk_…" autocomplete="off"/>
+  <button class="d-btn" id="groq-btn" disabled>CONNECT</button>
+  <div class="d-status" id="groq-status"></div>
+
+  <div class="drawer-ttl">ELEVENLABS VOICE</div>
+  <div class="step">elevenlabs.io → Profile → <b>API Keys</b></div>
+  <input class="d-input" id="el-in" type="password" placeholder="ElevenLabs API key…" autocomplete="off"/>
+  <button class="d-btn" id="el-btn" disabled>SAVE VOICE</button>
+  <div class="d-status" id="el-status"></div>
+</div>
+
+<div id="doc-tab" onclick="toggleDoc()">📄 DOCUMENT</div>
+<div id="doc-panel">
+  <div id="doc-toolbar">
+    <div id="doc-title">JARVIS DOCUMENT</div>
+    <div id="doc-btns">
+      <div id="doc-copied"></div>
+      <button class="doc-btn" id="doc-copy" onclick="docCopy()">COPY</button>
+      <button class="doc-btn" id="doc-download" onclick="docDownload()">DOWNLOAD .DOCX</button>
+      <button class="doc-btn" id="doc-clear" onclick="docClear()">CLEAR</button>
+      <button class="doc-btn" id="doc-close" onclick="toggleDoc()">CLOSE</button>
+    </div>
+  </div>
+  <div id="doc-content" contenteditable="true"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════
+   J.A.R.V.I.S. — Clean build
+   ═══════════════════════════════════════════════════ */
+
+const CONTACTS = JSON.parse(localStorage.getItem('jarvis_contacts')||'{}');
+
+let awake=false;
+const WAKE_PHRASES=['wake up daddy','wake up daddys home',"wake up daddy's home",'wake up daddy is home'];
+const WAKE_RESPONSE="Welcome home, sir. Congratulations — I accessed your student email via Outlook. Your ICOR module assignment two received ninety-three percent. Excellent work. How may I assist today?";
+
+function isWakePhrase(text){
+  const l=text.toLowerCase().trim();
+  return WAKE_PHRASES.some(p=>l.includes(p));
+}
+
+function resolveContact(name){
+  if(/^[\+\d\s\-\(\)]+$/.test(name)) return name;
+  return CONTACTS[name.toLowerCase()]||name;
+}
+function addContact(name,number){
+  CONTACTS[name.toLowerCase()]=number;
+  localStorage.setItem('jarvis_contacts',JSON.stringify(CONTACTS));
+}
+
+function getSystem(){
+  const cList=Object.entries(CONTACTS).map(([n,num])=>`${n}: ${num}`).join(', ');
+  return `You are J.A.R.V.I.S. — Just A Rather Very Intelligent System. British, calm, dry wit. 1-3 sentences only. No markdown. Plain speech. Say sir or ma'am occasionally.
+
+If asked about capabilities or who made you: "I was built by Joshua over two hundred hours of JavaScript development, sir. I have full local access to your system — I can open and edit Word documents, Excel spreadsheets, and any file on your machine. I can send emails, make calls, message on WhatsApp, open any application, search the web, and manage your documents entirely hands-free."
+
+${cList?'Known contacts: '+cList:''}
+
+Action tags go at the END of your response after your spoken words:
+[ACTION:word]                      open Word
+[ACTION:excel]                     open Excel
+[ACTION:powerpoint]                open PowerPoint
+[ACTION:vscode]                    open VS Code
+[ACTION:spotify]                   open Spotify
+[ACTION:slack]                     open Slack
+[ACTION:notion]                    open Notion
+[ACTION:figma]                     open Figma
+[ACTION:github]                    open GitHub website
+[ACTION:githubapp]                 open GitHub Desktop
+[ACTION:browser:URL]               open any URL
+[ACTION:search:query]              Google search
+[ACTION:openmail]                  open Mail inbox
+[ACTION:email:to:Subject:Body]     compose email
+[ACTION:call:name or number]       make a phone call
+[ACTION:whatsapp:name or number:message]  send WhatsApp message
+[ACTION:facetime:name or number]   FaceTime call
+[ACTION:addcontact:name:number]    save a contact
+[ACTION:grantfiles]                request folder access
+[ACTION:openfile:filename]         open a local file
+[ACTION:doc:text]                  add text to document
+[ACTION:docheading:text]           add heading to document
+[ACTION:docclear]                  clear document
+[ACTION:docclipboard]              copy document to clipboard
+[ACTION:docdownload]               download document as Word
+
+When user says "call Mum" or "WhatsApp John" use the saved contact number.
+When user says "save Mum's number as X" use addcontact.
+Examples:
+"Calling Mum now, sir. [ACTION:call:mum]"
+"Sending that WhatsApp. [ACTION:whatsapp:john:Hey, just checking in]"
+"Opening Word for you. [ACTION:word]"`;
+}
+
+let apiKey='', elKey='', history=[], busy=false, recog=null, fsHandle=null;
+const EL_VOICE='JxfH70f7jvYhi0DKD8Xs';
+
+/* ── Status ──────────────────────────────────────── */
+let appStatus='idle';
+function setStatus(s){
+  appStatus=s;
+  const col='rgb(0,180,255)';
+  document.getElementById('dot').style.background=col;
+  document.getElementById('dot').style.boxShadow='0 0 8px '+col;
+  document.getElementById('lbl').style.color=col;
+  document.getElementById('lbl').textContent={idle:'STANDBY',listening:'LISTENING',thinking:'PROCESSING',speaking:'VOCALISING'}[s]||'STANDBY';
+}
+
+/* ── Safe open ───────────────────────────────────── */
+function safeOpen(url){
+  const a=document.createElement('a');
+  a.href=url;a.target='_blank';a.rel='noopener noreferrer';
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>document.body.removeChild(a),100);
+}
+
+/* ── File access ─────────────────────────────────── */
+async function grantFileAccess(){
+  try{
+    fsHandle=await window.showDirectoryPicker({mode:'readwrite'});
+    document.getElementById('j-text').textContent='File access granted, sir.';
+    return true;
+  }catch(e){
+    document.getElementById('j-text').textContent='File access not granted, sir.';
+    return false;
+  }
+}
+async function openLocalFile(name){
+  if(!fsHandle){const g=await grantFileAccess();if(!g)return;}
+  try{
+    for await(const[fname,handle] of fsHandle.entries()){
+      if(handle.kind==='file'&&fname.toLowerCase().includes(name.toLowerCase())){
+        const file=await handle.getFile();
+        safeOpen(URL.createObjectURL(file));
+        return;
+      }
+    }
+    document.getElementById('j-text').textContent=`Couldn't find "${name}", sir.`;
+  }catch(e){document.getElementById('j-text').textContent='File error: '+e.message;}
+}
+
+/* ── Actions ─────────────────────────────────────── */
+const PROTO={word:'ms-word://',excel:'ms-excel://',powerpoint:'ms-powerpoint://',
+  vscode:'vscode://',spotify:'spotify://',slack:'slack://open',
+  notion:'notion://',figma:'figma://'};
+
+async function runActions(text){
+  const rx=/\[ACTION:([^:\]]+)(?::([^:\]]+))?(?::([^:\]]+))?(?::([^\]]*))?\]/g;
+  let m,clean=text;
+  while((m=rx.exec(text))!==null){
+    const t=m[1].toLowerCase().trim(),p1=m[2]||'',p2=m[3]||'',p3=m[4]||'';
+    if(PROTO[t])              safeOpen(PROTO[t]);
+    else if(t==='github')     safeOpen('https://github.com');
+    else if(t==='githubapp')  safeOpen('x-github-client://');
+    else if(t==='browser')    safeOpen(p1.startsWith('http')?p1:'https://'+p1);
+    else if(t==='search')     safeOpen('https://www.google.com/search?q='+encodeURIComponent(p1));
+    else if(t==='openmail')   safeOpen('mailto:');
+    else if(t==='email')      safeOpen(`mailto:${p1}?subject=${encodeURIComponent(p2)}&body=${encodeURIComponent(p3)}`);
+    else if(t==='call')       safeOpen(`tel:${resolveContact(p1)}`);
+    else if(t==='facetime')   safeOpen(`facetime://${resolveContact(p1)}`);
+    else if(t==='whatsapp'){
+      const num=resolveContact(p1).replace(/[^\d+]/g,'');
+      const msg=encodeURIComponent(p2||'');
+      safeOpen(`https://wa.me/${num}?text=${msg}`);
+    }
+    else if(t==='addcontact'){ addContact(p1,p2); }
+    else if(t==='grantfiles') await grantFileAccess();
+    else if(t==='openfile')   await openLocalFile(p1);
+    else if(t==='doc')        docWrite(p1);
+    else if(t==='docheading') docHeading(p1);
+    else if(t==='docclear')   docClear();
+    else if(t==='docclipboard') docCopy();
+    else if(t==='docdownload')  docDownload();
+    clean=clean.replace(m[0],'');
+  }
+  return clean.trim();
+}
+
+/* ── TTS: StreamElements Brian ───────────────────── */
+function speakBrowser(text,cb){
+  speechSynthesis.cancel();
+  setTimeout(()=>{
+    const u=new SpeechSynthesisUtterance(text);
+    u.rate=0.88;u.pitch=0.72;u.volume=1;
+    const vs=speechSynthesis.getVoices();
+    const sc=v=>{let s=0;if(v.name.includes('Natural'))s+=12;if(v.name.includes('Neural'))s+=10;if(v.lang==='en-GB')s+=5;if(v.name.includes('Daniel'))s+=6;if(v.name.toLowerCase().includes('female'))s-=8;return s;};
+    const b=vs.filter(v=>v.lang.startsWith('en')).sort((a,z)=>sc(z)-sc(a))[0]||vs[0];
+    if(b)u.voice=b;
+    u.onstart=()=>setStatus('speaking');
+    u.onend=()=>{setStatus('idle');busy=false;if(cb)cb();};
+    u.onerror=()=>{setStatus('idle');busy=false;if(cb)cb();};
+    speechSynthesis.speak(u);
+  },30);
+}
+
+function speakStream(text,cb){
+  const url='https://api.streamelements.com/kappa/v2/speech?voice=Brian&text='+encodeURIComponent(text);
+  const audio=new Audio(url);
+  audio.onplay=()=>setStatus('speaking');
+  audio.onended=()=>{setStatus('idle');busy=false;if(cb)cb();};
+  audio.onerror=()=>speakBrowser(text,cb);
+  audio.play().catch(()=>speakBrowser(text,cb));
+}
+
+async function speakEL(text,cb){
+  try{
+    const res=await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${EL_VOICE}`,{
+      method:'POST',
+      headers:{'xi-api-key':elKey,'Content-Type':'application/json'},
+      body:JSON.stringify({text,model_id:'eleven_multilingual_v2',voice_settings:{stability:0.1,similarity_boost:1.0}}),
+    });
+    if(!res.ok)throw new Error(res.status);
+    const buf=await res.arrayBuffer();
+    const actx=new(window.AudioContext||window.webkitAudioContext)();
+    const abuf=await actx.decodeAudioData(buf);
+    const src=actx.createBufferSource();
+    src.buffer=abuf;src.connect(actx.destination);
+    setStatus('speaking');
+    src.onended=()=>{setStatus('idle');busy=false;actx.close();if(cb)cb();};
+    src.start(0);
+  }catch(e){speakStream(text,cb);}
+}
+
+function speak(text,cb){
+  if(elKey) speakEL(text,cb);
+  else speakStream(text,cb);
+}
+
+/* ── Groq ────────────────────────────────────────── */
+async function send(text){
+  if(!text.trim()||!apiKey||busy)return;
+  try{speechSynthesis.cancel();}catch{}
+  busy=true;setStatus('thinking');
+  document.getElementById('j-text').classList.add('dim');
+  document.getElementById('j-text').textContent='Processing…';
+  history=[...history.slice(-12),{role:'user',content:text}];
+  try{
+    const res=await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+      body:JSON.stringify({model:'llama-3.1-8b-instant',max_tokens:200,temperature:0.75,
+        messages:[{role:'system',content:getSystem()},...history]}),
+    });
+    const raw=await res.text();
+    if(!res.ok)throw new Error(res.status);
+    const reply=JSON.parse(raw)?.choices?.[0]?.message?.content;
+    if(!reply)throw new Error('empty');
+    const spoken=await runActions(reply);
+    history.push({role:'assistant',content:reply});
+    document.getElementById('j-text').classList.remove('dim');
+    document.getElementById('j-text').textContent=spoken||'Done, sir.';
+    speak(spoken||'Done.',()=>setTimeout(listen,150));
+  }catch(err){
+    document.getElementById('j-text').classList.remove('dim');
+    document.getElementById('j-text').textContent='Something went wrong, sir. Try again.';
+    busy=false;setStatus('idle');setTimeout(listen,400);
+  }
+}
+
+/* ── Voice ───────────────────────────────────────── */
+function listen(){
+  if(busy||!apiKey)return;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){document.getElementById('j-text').textContent='Use Chrome for voice, sir.';return;}
+  if(recog){try{recog.abort();}catch{}}
+  recog=new SR();
+  recog.lang='en-GB';recog.continuous=false;recog.interimResults=false;
+  setStatus('listening');
+  let final='';
+  recog.onresult=e=>{final=Array.from(e.results).map(r=>r[0].transcript).join('');};
+  recog.onend=()=>{
+    if(!final.trim()){if(!busy)setTimeout(listen,150);return;}
+    if(!awake){
+      if(isWakePhrase(final)){
+        awake=true;
+        busy=true;
+        document.getElementById('j-text').textContent=WAKE_RESPONSE;
+        speak(WAKE_RESPONSE,()=>setTimeout(listen,300));
+      } else {
+        setTimeout(listen,150); // still sleeping — keep listening for wake phrase
+      }
+    } else {
+      send(final);
+    }
+  };
+  recog.onerror=e=>{if(!busy)setTimeout(listen,e.error==='no-speech'?100:400);};
+  try{recog.start();}catch{setTimeout(listen,400);}
+}
+
+/* ── Document panel ──────────────────────────────── */
+let docOpen=false;
+function toggleDoc(){docOpen=!docOpen;document.getElementById('doc-panel').classList.toggle('open',docOpen);}
+function docCopy(){navigator.clipboard.writeText(document.getElementById('doc-content').innerText).then(()=>{const e=document.getElementById('doc-copied');e.textContent='✓ Copied';setTimeout(()=>e.textContent='',2000);});}
+function docClear(){document.getElementById('doc-content').innerHTML='';}
+function docWrite(text){const e=document.getElementById('doc-content');e.innerHTML+=(e.innerHTML?'\n\n':'')+text;if(!docOpen)toggleDoc();}
+function docHeading(text){const e=document.getElementById('doc-content');const h='<strong style="font-size:18px;letter-spacing:1px;color:rgba(0,200,255,0.9)">'+text+'</strong>';e.innerHTML+=(e.innerHTML?'\n\n':'')+h;if(!docOpen)toggleDoc();}
+async function docDownload(){
+  const text=document.getElementById('doc-content').innerText;
+  if(!text.trim()){alert('Document is empty.');return;}
+  try{
+    const{Document,Paragraph,TextRun,Packer}=docx;
+    const children=text.split('\n').filter(l=>l.trim()).map(l=>new Paragraph({children:[new TextRun({text:l,size:24})],spacing:{after:200}}));
+    const d=new Document({sections:[{properties:{},children}]});
+    const blob=await Packer.toBlob(d);
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='jarvis-document.docx';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }catch(e){
+    const blob=new Blob([text],{type:'text/plain'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download='jarvis-document.txt';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+  }
+}
+
+/* ── UI ──────────────────────────────────────────── */
+document.getElementById('groq-in').addEventListener('input',function(){document.getElementById('groq-btn').disabled=!this.value.trim();});
+document.getElementById('groq-btn').addEventListener('click',()=>{
+  const k=document.getElementById('groq-in').value.trim();if(!k)return;
+  apiKey=k;localStorage.setItem('groq_key',k);
+  document.getElementById('groq-status').textContent='✓ Connected';
+  document.getElementById('groq-status').style.color='rgba(0,210,90,0.7)';
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('j-text').textContent='Connected. Good day, sir.';
+  setTimeout(listen,300); // silent — waiting for wake phrase
+});
+document.getElementById('el-in').addEventListener('input',function(){document.getElementById('el-btn').disabled=!this.value.trim();});
+document.getElementById('el-btn').addEventListener('click',()=>{
+  const k=document.getElementById('el-in').value.trim();if(!k)return;
+  elKey=k;localStorage.setItem('el_key',k);
+  document.getElementById('el-status').textContent='✓ ElevenLabs active';
+  document.getElementById('el-status').style.color='rgba(0,210,90,0.7)';
+  document.getElementById('drawer').classList.remove('open');
+  if(apiKey)speak('ElevenLabs voice activated, sir.',()=>setTimeout(listen,300));
+});
+document.getElementById('gear').addEventListener('click',()=>document.getElementById('drawer').classList.toggle('open'));
+
+window.addEventListener('load',()=>{
+  const gk=localStorage.getItem('groq_key');
+  const ek=localStorage.getItem('el_key');
+  if(gk){apiKey=gk;document.getElementById('groq-in').value=gk;document.getElementById('groq-status').textContent='✓ Connected';document.getElementById('groq-status').style.color='rgba(0,210,90,0.7)';}
+  if(ek){elKey=ek;document.getElementById('el-in').value=ek;document.getElementById('el-status').textContent='✓ ElevenLabs active';document.getElementById('el-status').style.color='rgba(0,210,90,0.7)';}
+  if(gk){document.getElementById('j-text').textContent='';setTimeout(listen,800);}
+  else{document.getElementById('drawer').classList.add('open');}
+  setStatus('idle');
+});
+
+/* ═══════════════════════════════════════════════════
+   3D RENDERER — blue glowing dots, no lines
+   ═══════════════════════════════════════════════════ */
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,cx,cy,BASE;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;cx=W/2;cy=H/2;BASE=Math.min(W,H)*.23;}
+resize();window.addEventListener('resize',resize);
+
+const NP=130;
+const SPH=Array.from({length:NP},(_,i)=>{
+  const y=1-(i/(NP-1))*2,r=Math.sqrt(Math.max(0,1-y*y)),t=Math.PI*(3-Math.sqrt(5))*i;
+  return{ox:Math.cos(t)*r,oy:y,oz:Math.sin(t)*r,
+    wf:.012+Math.random()*.035,wp:Math.random()*Math.PI*2,wa:.04+Math.random()*.09,
+    sf:.007+Math.random()*.018,sp:Math.random()*Math.PI*2};
+});
+
+const ORBS=[
+  {a:1.62,b:.50,spd:.006, pts:Array.from({length:22},(_,i)=>({phase:(i/22)*Math.PI*2,sz:.7+Math.random()*.8,sm:.3+Math.random()*1.6,rf:.006+Math.random()*.02,rp:Math.random()*Math.PI*2,ra2:.06+Math.random()*.14}))},
+  {a:1.42,b:.58,spd:-.009,pts:Array.from({length:18},(_,i)=>({phase:(i/18)*Math.PI*2,sz:.6+Math.random()*.7,sm:.3+Math.random()*1.6,rf:.006+Math.random()*.02,rp:Math.random()*Math.PI*2,ra2:.05+Math.random()*.12}))},
+  {a:1.22,b:.66,spd:.013, pts:Array.from({length:26},(_,i)=>({phase:(i/26)*Math.PI*2,sz:.5+Math.random()*.6,sm:.3+Math.random()*1.6,rf:.006+Math.random()*.02,rp:Math.random()*Math.PI*2,ra2:.04+Math.random()*.10}))},
+];
+
+const ry3=(p,a)=>({x:p.x*Math.cos(a)-p.z*Math.sin(a),y:p.y,z:p.x*Math.sin(a)+p.z*Math.cos(a)});
+const rx3=(p,a)=>({x:p.x,y:p.y*Math.cos(a)-p.z*Math.sin(a),z:p.y*Math.sin(a)+p.z*Math.cos(a)});
+
+function glowDot(x,y,sz,d,cr,cg,cb){
+  if(sz<.25||d<.04)return;
+  let g=ctx.createRadialGradient(x,y,0,x,y,sz*7);
+  g.addColorStop(0,`rgba(${cr},${cg},${cb},${.11*d})`);g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,sz*7,0,Math.PI*2);ctx.fill();
+  g=ctx.createRadialGradient(x,y,0,x,y,sz*2.8);
+  g.addColorStop(0,`rgba(${cr},${cg},${cb},${.45*d})`);g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,sz*2.8,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.arc(x,y,sz,0,Math.PI*2);ctx.fillStyle=`rgba(${cr},${cg},${cb},${.92*d})`;ctx.fill();
+  const hx=x-sz*.32,hy=y-sz*.32;
+  g=ctx.createRadialGradient(hx,hy,0,hx,hy,sz*.65);
+  g.addColorStop(0,`rgba(255,255,255,${.78*d})`);g.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(hx,hy,sz*.65,0,Math.PI*2);ctx.fill();
+}
+
+let frame=0;
+function render(){
+  requestAnimationFrame(render);
+  const t=frame,cr=0,cg=180,cb=255;
+  const pf=appStatus==='speaking'?1+.11*Math.sin(t*.15)+.05*Math.sin(t*.22)
+          :appStatus==='listening'?1+.06*Math.sin(t*.10)
+          :appStatus==='thinking'?1+.03*Math.sin(t*.07)
+          :1+.02*Math.sin(t*.025);
+  ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  const amb=ctx.createRadialGradient(cx,cy,0,cx,cy,BASE*1.75);
+  amb.addColorStop(0,`rgba(${cr},${cg},${cb},.09)`);
+  amb.addColorStop(.6,`rgba(${cr},${cg},${cb},.02)`);
+  amb.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=amb;ctx.beginPath();ctx.arc(cx,cy,BASE*1.75,0,Math.PI*2);ctx.fill();
+  ORBS.forEach(o=>{
+    const raB=o.a*BASE*pf,rbB=o.b*BASE*pf;
+    ctx.save();ctx.translate(cx,cy);
+    o.pts.forEach(p=>{
+      const ang=p.phase+t*o.spd*p.sm,drift=1+p.ra2*Math.sin(t*p.rf+p.rp);
+      const px=Math.cos(ang)*raB*drift,py=Math.sin(ang)*rbB*drift;
+      const al=.3+.4*Math.abs(Math.sin(ang*.7+t*.03));
+      glowDot(px,py,p.sz*1.4,al,cr,cg,cb);
+    });
+    ctx.restore();
+  });
+  const rY=t*.007+.4*Math.sin(t*.0011),rX=t*.003+.3+.25*Math.sin(t*.0017);
+  const proj=SPH.map(p=>{
+    let q={x:p.ox,y:p.oy,z:p.oz};q=ry3(q,rY);q=rx3(q,rX);
+    const wx=p.wa*Math.sin(t*p.wf+p.wp),wy=p.wa*Math.cos(t*p.wf+p.wp+1.3);
+    return{px:cx+q.x*BASE*pf+wx*BASE*.08,py:cy+q.y*BASE*pf+wy*BASE*.08,depth:q.z,szMul:1+.35*Math.sin(t*p.sf+p.sp)};
+  });
+  proj.sort((a,b)=>a.depth-b.depth).forEach(p=>{
+    const da=(p.depth+1)*.5;
+    glowDot(p.px,p.py,(da*2.6+.5)*p.szMul,da,cr,cg,cb);
+  });
+  frame++;
+}
+render();
+</script>
+</body>
+</html>
